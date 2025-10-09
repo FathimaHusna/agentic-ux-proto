@@ -1,0 +1,23 @@
+{
+  "name": "agentic-ux-proto",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "node --loader ts-node/esm src/index.ts",
+    "dev": "node --loader ts-node/esm src/index.ts"
+  },
+  "dependencies": {
+    "pa11y": "^6.2.0",
+    "lighthouse": "^12.8.2",
+    "chrome-launcher": "^1.0.0",
+    "puppeteer": "^22.10.0",
+    "puppeteer-core": "^22.10.0"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  },
+  "optionalDependencies": {}
+}

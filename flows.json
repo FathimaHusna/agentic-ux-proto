@@ -1,0 +1,10 @@
+[
+{
+    "name": "smoke: home",
+    "steps": [
+      { "action": "visit" },
+      { "action": "wait", "ms": 800 },
+      { "action": "assertVisible", "selector": "body" }
+    ]
+}
+]
