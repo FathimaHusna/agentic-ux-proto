@@ -29,11 +29,20 @@ export async function runAxeAudit(pages: PageRun[], _mode?: 'pa11y'): Promise<vo
 // Journeys disabled until a real adapter is added.
 export async function runJourneysAgent(baseUrl: string, jobId: string): Promise<Journey[]> {
   try {
-    const mod = await import('./agents/journeys.puppeteer.js');
+    // Support both built (.js) and ts-node dev (.ts) imports
+    let mod: any;
+    try {
+      mod = await import('./agents/journeys.puppeteer.js');
+    } catch {
+      const tsPath = './agents/' + 'journeys.puppeteer.ts';
+      mod = await import(tsPath as any);
+    }
     const flowsPath = process.env.FLOWS_PATH as string | undefined;
     return mod.runJourneysPuppeteer(baseUrl, jobId, flowsPath);
-  } catch {
-    try { await safeWriteText(`runs/${jobId}/journeys/error.log`, 'Failed to import journeys adapter. Ensure dependencies are installed.\n'); } catch {}
+  } catch (e: any) {
+    const msg = 'Failed to import journeys adapter. Ensure dependencies are installed.\n' +
+      (e && e.message ? `Error: ${e.message}\n` : '');
+    try { await safeWriteText(`runs/${jobId}/journeys/error.log`, msg); } catch {}
     return [];
   }
 }

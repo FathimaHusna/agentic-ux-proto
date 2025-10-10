@@ -56,8 +56,10 @@ const server = http.createServer(async (req, res) => {
         return sendJSON(res, 400, { error: 'Invalid url' });
       }
       const job = jobStore.createJob(targetUrl, { maxDepth, engines: { crawler, a11y } });
+      const reportUrl = `/api/report/${job.id}`;
+      const jobUrl = `/api/job/${job.id}`;
       enqueueJob(jobStore, job.id);
-      return sendJSON(res, 202, { jobId: job.id });
+      return sendJSON(res, 202, { jobId: job.id, reportUrl, jobUrl });
     } catch (e: any) {
       return sendJSON(res, 500, { error: e?.message || 'Server error' });
     }
@@ -79,14 +81,66 @@ const server = http.createServer(async (req, res) => {
         const err = job.error ? String(job.error) : 'Unknown error';
         return sendHTML(res, 500, `<h1>Report error</h1><pre>${escapeHtml(err)}</pre>`);
       }
-      const prog = typeof job.progress === 'number' ? `${job.progress}%` : 'pending';
-      return sendHTML(res, 202, `<h1>Report not ready</h1><p>Status: ${escapeHtml(job.status)} | Progress: ${escapeHtml(String(prog))}</p>`);
+      const progNum = typeof job.progress === 'number' ? job.progress : 0;
+      const prog = `${progNum}%`;
+      const pendingHtml = `<!doctype html><html><head><meta charset="utf-8"/><title>Generating report…</title>
+        <style>
+          body{font-family:system-ui,Arial,sans-serif;padding:24px}
+          .bar{height:8px;background:#eee;border-radius:999px;overflow:hidden;width:360px;margin:8px 0}
+          .bar>span{display:block;height:100%;background:#4f46e5;width:${progNum}%}
+          .muted{color:#555}
+        </style>
+      </head><body>
+        <h1>Generating report…</h1>
+        <p>Job <code>${escapeHtml(id)}</code> — Status: <strong>${escapeHtml(job.status)}</strong> | Progress: <strong id="p">${escapeHtml(String(prog))}</strong></p>
+        <div class="bar"><span id="pb"></span></div>
+        <p class="muted">This page will open automatically when ready.</p>
+        <p><a id="joblink" href="/api/job/${escapeHtml(id)}" target="_blank">View job JSON</a> · <a href="/">Start another</a></p>
+        <script>
+          (function(){
+            const id = ${JSON.stringify(id)};
+            const pEl = document.getElementById('p');
+            const pbEl = document.getElementById('pb');
+            function setProg(n){ pEl.textContent = (typeof n === 'number') ? (n + '%') : 'pending'; if (typeof n === 'number') pbEl.style.width = n + '%'; }
+            setProg(${progNum});
+            async function poll(){
+              try {
+                const r = await fetch('/api/job/' + id, { cache: 'no-cache' });
+                if (!r.ok) throw new Error('status');
+                const j = await r.json();
+                setProg(j && typeof j.progress === 'number' ? j.progress : undefined);
+                if (j && j.status === 'done') { location.reload(); return; }
+                if (j && j.status === 'error') { pEl.textContent = 'error'; return; }
+              } catch (e) { /* ignore transient errors */ }
+              setTimeout(poll, 1500);
+            }
+            poll();
+          })();
+        </script>
+      </body></html>`;
+      return sendHTML(res, 202, pendingHtml);
     }
     return sendHTML(res, 200, job.outputs.artifacts.reportHtml);
   }
 
   // Default: simple landing
   if (method === 'GET' && url.pathname === '/') {
+    // If query params provided (url[, maxDepth, crawler, a11y]), auto-create job and redirect to report
+    const q: any = url.query || {};
+    const qUrl = q.url ? String(q.url).trim() : '';
+    if (qUrl) {
+      if (!/^https?:\/\//i.test(qUrl)) {
+        return sendHTML(res, 400, '<h1>Invalid url</h1>');
+      }
+      const maxDepth = Math.max(1, Math.min(Number(q.maxDepth || 2), 3));
+      const crawler = q.crawler === 'http' ? 'http' : undefined;
+      const a11y = q.a11y === 'pa11y' ? 'pa11y' : undefined;
+      const job = jobStore.createJob(qUrl, { maxDepth, engines: { crawler, a11y } });
+      enqueueJob(jobStore, job.id);
+      const loc = `/api/report/${job.id}`;
+      res.writeHead(303, { Location: loc, 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(`<!doctype html><meta http-equiv="refresh" content="0;url=${loc}"><a href="${loc}">Redirecting to report…</a>`);
+    }
     return sendHTML(
       res,
       200,
@@ -116,9 +170,20 @@ const server = http.createServer(async (req, res) => {
               maxDepth: Number(data.maxDepth || 2),
               engines: { crawler: data.crawler || 'http', a11y: data.a11y || 'pa11y' }
             };
-            const r = await fetch('/api/analyze', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-            const j = await r.json();
-            out.textContent = JSON.stringify(j, null, 2);
+            try {
+              out.textContent = 'Creating job...';
+              const r = await fetch('/api/analyze', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+              const j = await r.json();
+              if (j && j.jobId) {
+                const reportUrl = j.reportUrl || ('/api/report/' + j.jobId);
+                out.textContent = 'Job created. Redirecting to report...\n' + JSON.stringify(j, null, 2);
+                window.location.href = reportUrl;
+              } else {
+                out.textContent = 'Failed to create job: ' + JSON.stringify(j);
+              }
+            } catch (err) {
+              out.textContent = 'Error: ' + (err && err.message ? err.message : String(err));
+            }
           });
         </script>
       </body></html>`

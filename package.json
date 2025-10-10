@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc -p .",
     "start": "node --loader ts-node/esm src/index.ts",
-    "dev": "node --loader ts-node/esm src/index.ts"
+    "dev": "node --loader ts-node/esm src/index.ts",
+    "start:prod": "node dist/index.js"
   },
   "dependencies": {
     "pa11y": "^6.2.0",

@@ -36,6 +36,10 @@ Lightweight Node/TypeScript prototype to analyze a site and generate an executiv
   - `curl -s -X POST http://localhost:8787/api/analyze -H 'Content-Type: application/json' -d '{"url":"https://example.com","maxDepth":2,"engines":{"crawler":"http","a11y":"pa11y"}}'`
   - `open http://localhost:8787/api/report/<jobId>`
 
+**One-Click Link**
+- You can auto-run via query params and get redirected to the progress/report page:
+  - `http://localhost:8787/?url=https%3A%2F%2Fexample.com&maxDepth=2&crawler=http&a11y=pa11y`
+
 **Environment Variables**
 - `PORT`: server port (default `8787`).
 - `CHROME_PATH`: path to Chrome for Lighthouse (e.g., `/usr/bin/google-chrome`).
@@ -64,3 +68,53 @@ Lightweight Node/TypeScript prototype to analyze a site and generate an executiv
 - Progress streaming (SSE/websockets) and richer UI.
 - Persistence (SQLite/Postgres) and run diffs.
 - Evidence sections: A11y table + Journey screenshots gallery.
+
+## Deploy
+
+### Option A: Docker (recommended)
+This repo includes a production-ready `Dockerfile` using the Puppeteer image with Chromium built-in.
+
+Build and run:
+
+```bash
+cd agentic-ux-proto
+docker build -t agentic-ux .
+docker run --rm -p 8787:8787 \
+  -e PORT=8787 \
+  -e FLOWS_PATH=/app/flows.json \
+  -e CHROME_PATH=/usr/bin/chromium \
+  -e PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+  -v agentic_runs:/app/runs \
+  agentic-ux
+```
+
+Or with Compose:
+
+```bash
+docker compose up --build
+```
+
+Open: `http://localhost:8787`
+
+To expose publicly, run Cloudflare Tunnel locally: `cloudflared tunnel --url http://localhost:8787`
+
+### Option B: Systemd on a VM
+
+1) Install Node 18+ and Chrome/Chromium
+2) Build: `npm ci && npm run build`
+3) Install the service: see `deploy/systemd/README.md`
+4) Start: `sudo systemctl enable --now agentic-ux`
+
+### Option C: Local + Quick Tunnel (fastest dev demo)
+
+```bash
+npm ci
+export CHROME_PATH=$(which google-chrome || which chromium)
+export PUPPETEER_EXECUTABLE_PATH=$CHROME_PATH
+export FLOWS_PATH=$PWD/flows.json
+npm run build && npm run start:prod
+# In another shell:
+cloudflared tunnel --url http://localhost:8787
+```
+
+Share the https URL that Cloudflare prints.

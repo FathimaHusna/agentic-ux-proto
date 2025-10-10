@@ -1,0 +1,21 @@
+[Unit]
+Description=Agentic UX Prototype
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/fathimahusna/agentic-ux-proto
+Environment=NODE_ENV=production
+Environment=PORT=8787
+Environment=FLOWS_PATH=/home/fathimahusna/agentic-ux-proto/flows.json
+# Point to your Chrome/Chromium binary
+Environment=CHROME_PATH=/usr/bin/google-chrome
+Environment=PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=3
+User=fathimahusna
+
+[Install]
+WantedBy=multi-user.target
+

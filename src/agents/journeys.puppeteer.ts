@@ -51,16 +51,26 @@ export async function runJourneysPuppeteer(baseUrl: string, jobId: string, flows
 
   let browser: Browser | null = null;
   let launchError: any = null;
+  let runError: any = null;
   const journeys: Journey[] = [];
   try {
-    // Dynamically import puppeteer-core, fallback to puppeteer
+    // Dynamically import Puppeteer. Prefer full 'puppeteer' unless a custom
+    // executable is provided via env (then prefer 'puppeteer-core').
     let puppeteerMod: any;
-    try {
-      const mod: any = await import('puppeteer-core');
-      puppeteerMod = mod.default ?? mod;
-    } catch {
-      const mod: any = await import('puppeteer');
-      puppeteerMod = mod.default ?? mod;
+    const hasCustomExec = !!(process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH);
+    if (!hasCustomExec) {
+      try {
+        const modAny: any = await import('puppeteer');
+        puppeteerMod = modAny.default ?? modAny;
+      } catch { /* fall back to core */ }
+    }
+    if (!puppeteerMod) {
+      try {
+        const modAny: any = await import('puppeteer-core');
+        puppeteerMod = modAny.default ?? modAny;
+      } catch {
+        throw new Error('Neither puppeteer nor puppeteer-core is available');
+      }
     }
 
     const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH || undefined;
@@ -74,10 +84,36 @@ export async function runJourneysPuppeteer(baseUrl: string, jobId: string, flows
       '--no-zygote'
     ];
     browser = await puppeteerMod.launch({ headless, args: chromeArgs, executablePath });
-    const context = await browser.createIncognitoBrowserContext();
+    // Create an isolated context if supported; fall back to default
+    let context: any = null;
+    let useBrowserDirect = false;
+    try {
+      if (browser && typeof (browser as any).createIncognitoBrowserContext === 'function') {
+        context = await (browser as any).createIncognitoBrowserContext();
+      } else if (browser && typeof (browser as any).createBrowserContext === 'function') {
+        context = await (browser as any).createBrowserContext();
+      } else {
+        useBrowserDirect = true;
+      }
+    } catch {
+      useBrowserDirect = true;
+      context = null;
+    }
 
     for (const flow of flows) {
-      const page = await context.newPage();
+      let page: any | null = null;
+      try {
+        page = useBrowserDirect ? await (browser as any).newPage() : await context.newPage();
+      } catch (e: any) {
+        const start = Date.now();
+        const steps: JourneyStep[] = [
+          { action: 'newPage', selector: '', ok: false, t: 0, error: e?.message || 'failed to open page' }
+        ];
+        const totalTime = Date.now() - start;
+        journeys.push({ name: flow.name, steps, totalTime, failedAt: 0 });
+        // Skip executing steps for this flow
+        continue;
+      }
       const steps: JourneyStep[] = [];
       let failedAt: number | undefined;
       const start = Date.now();
@@ -107,11 +143,21 @@ export async function runJourneysPuppeteer(baseUrl: string, jobId: string, flows
               await page.type(s.selector, s.value ?? '', { delay: 10 });
               steps.push({ action: `type ${s.selector}`, selector: s.selector, ok: true, t: Date.now() - t0 });
             } else if (s.action === 'wait') {
-              await page.waitForTimeout(s.ms || 200);
-              steps.push({ action: 'wait', selector: '', ok: true, t: Date.now() - t0 });
+              const ms = s.ms || 200;
+              try {
+                if (typeof (page as any).waitForTimeout === 'function') {
+                  await (page as any).waitForTimeout(ms);
+                } else {
+                  await new Promise<void>(r => setTimeout(r, ms));
+                }
+                steps.push({ action: 'wait', selector: '', ok: true, t: Date.now() - t0 });
+              } catch (e: any) {
+                steps.push({ action: 'wait', selector: '', ok: false, t: Date.now() - t0, error: e?.message || 'wait failed' });
+                throw e;
+              }
             } else if (s.action === 'assertText') {
               await page.waitForSelector(s.selector, { timeout: 10000 });
-              const txt = await page.$eval(s.selector, el => (el.textContent || '').trim());
+              const txt = await page.$eval(s.selector, (el: any) => (el.textContent || '').trim());
               if (!txt.includes(s.contains)) throw new Error(`Text not found: ${s.contains}`);
               steps.push({ action: `assertText ${s.selector}`, selector: s.selector, ok: true, t: Date.now() - t0 });
             } else if (s.action === 'assertVisible') {
@@ -134,18 +180,21 @@ export async function runJourneysPuppeteer(baseUrl: string, jobId: string, flows
     }
   } catch (e: any) {
     launchError = e;
+    runError = e;
   } finally {
     if (browser) {
       try { await browser.close(); } catch {}
-    } else {
-      // best-effort write a hint if browser failed to launch
+    }
+    // best-effort write a hint if we encountered any error (including after launch)
+    if (launchError || runError) {
       try {
         const logPath = path.join('runs', jobId, 'journeys', 'error.log');
         await ensureDir(path.dirname(logPath));
         const msg = `Puppeteer failed to launch or run flows.\n` +
                     `Tried executable: ${process.env.PUPPETEER_EXECUTABLE_PATH || '(bundled)'}\n` +
                     `Hints: export PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome and restart.\n` +
-                    `${launchError ? 'Error: ' + (launchError.message || String(launchError)) + '\n' : ''}`;
+                    `${launchError ? 'Launch error: ' + (launchError.message || String(launchError)) + '\n' : ''}` +
+                    `${runError && !launchError ? 'Run error: ' + (runError.message || String(runError)) + '\n' : ''}`;
         await fs.writeFile(logPath, msg, 'utf-8');
       } catch {}
     }

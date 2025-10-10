@@ -1,0 +1,26 @@
+services:
+  agentic-ux:
+    build: .
+    image: agentic-ux:latest
+    ports:
+      - "8787:8787"
+    environment:
+      - PORT=8787
+      - FLOWS_PATH=/app/flows.json
+      - CHROME_PATH=/usr/bin/google-chrome
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome
+    volumes:
+      - runs:/app/runs
+    restart: unless-stopped
+
+  # Quick public URL via Cloudflare Tunnel (no account required)
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://agentic-ux:8787
+    depends_on:
+      - agentic-ux
+    restart: unless-stopped
+
+volumes:
+  runs:
+    driver: local
