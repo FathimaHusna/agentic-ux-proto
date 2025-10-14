@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p .",
-    "start": "node --loader ts-node/esm src/index.ts",
+    "start": "npm run build && node dist/index.js",
     "dev": "node --loader ts-node/esm src/index.ts",
-    "start:prod": "node dist/index.js"
+    "start:prod": "node dist/index.js",
+    "roast:demo": "npm run build && node dist/tools/devRoast.js",
+    "analyze:demo": "npm run build && node dist/tools/analyzeNoServer.js"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "pa11y": "^6.2.0",
     "lighthouse": "^12.8.2",
     "chrome-launcher": "^1.0.0",
