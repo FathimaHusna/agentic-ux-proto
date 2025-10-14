@@ -1,6 +1,31 @@
+# Agentic UX – Executive Overview (for Business Users)
+
+Agentic UX quickly shows where a website is helping or hurting customers, and what to do next. It produces a single Executive Storyboard to share with stakeholders: top fixes, evidence, a 2‑week plan, and an estimated impact.
+
+What you get
+- Executive Storyboard: top 5 fixes, a plain‑English summary, and quick exports
+- Evidence: accessibility and performance tables, and journey screenshots if flows fail
+- ROI snapshot: adjustable inputs (visitors, CVR, AOV) with uplift ranges
+- Exports: Jira‑ready CSV, Fix Pack (what to change), PR Pack (example edits)
+
+How to use
+- Open the app, paste your site URL, optionally add up to 3 competitors, then Analyze
+- Share the report link with stakeholders (works in any browser)
+- Use the Impact/Effort matrix and Top 5 Fixes to decide “Now vs Next”
+
+Sharing a public link (Docker Compose)
+- Run `docker compose up --build -d`
+- Get the public URL: `docker compose logs -f cloudflared` and copy the `https://...trycloudflare.com` link
+
+What it doesn’t do (yet)
+- Deep crawls of very large sites; advanced login flows out of the box; long‑term storage/roles
+
+Why it’s different
+- Action‑first (not just scores), business‑friendly narrative, evidence‑backed, fast and private
+
 # Agentic UX – Rapid Prototype
 
-Lightweight Node/TypeScript prototype to analyze a site and generate an executive storyboard (HTML) from real, pluggable engines.
+Lightweight Node/TypeScript prototype to analyze a site and generate an executive storyboard (HTML) from real, pluggable engines. Includes a Tailwind‑powered landing page for a friendly, responsive entry point.
 
 **What It Does**
 - Paste a URL → creates a job and runs: crawl → a11y → perf → synthesis (+ optional journeys).
@@ -46,6 +71,7 @@ Lightweight Node/TypeScript prototype to analyze a site and generate an executiv
 - `src/agents/*` – real adapters: `crawl.http.ts`, `a11y.pa11y.ts`, `perf.lighthouse.ts`, `journeys.puppeteer.ts`.
 - `src/synthesis/*` – prioritization + report HTML.
 - `runs/` – artifacts per job (report, journey screenshots/logs).
+ - `public/` – Tailwind landing page served at `/`.
 
 **Install**
 - Requirements: Node 18+; local Chrome/Chromium recommended.
@@ -61,6 +87,11 @@ Lightweight Node/TypeScript prototype to analyze a site and generate an executiv
 **One-Click Link**
 - You can auto-run via query params and get redirected to the progress/report page:
   - `http://localhost:8787/?url=https%3A%2F%2Fexample.com&maxDepth=2&crawler=http&a11y=pa11y`
+
+**Public URL (quick demo)**
+- Using Docker Compose, a Cloudflare Tunnel sidecar provides a shareable URL.
+- Start: `docker compose up --build -d`
+- Copy the printed `https://...trycloudflare.com` from: `docker compose logs -f cloudflared`
 
 **Environment Variables**
 - `PORT`: server port (default `8787`).
