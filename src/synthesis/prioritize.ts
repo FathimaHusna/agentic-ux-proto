@@ -96,6 +96,84 @@ export function prioritize(pages: PageRun[], journeys: Journey[]): Issue[] {
     }
   }
 
+  // SEO/Copy heuristics from meta signals
+  //  - Missing/short/long <title>
+  //  - Missing H1
+  //  - Missing/long meta description
+  //  - Duplicate titles across pages
+  const titleToPages = new Map<string, string[]>();
+  for (const p of pages) {
+    const title = (p.meta?.title || '').trim();
+    if (title) {
+      const arr = titleToPages.get(title) || [];
+      arr.push(p.url);
+      titleToPages.set(title, arr);
+    }
+  }
+
+  for (const p of pages) {
+    const title = (p.meta?.title || '').trim();
+    const h1 = (p.meta?.h1 || '').trim();
+    const desc = (p.meta?.description || '').trim();
+
+    // Title presence and length
+    if (!title) {
+      const sev = 4; const impact = 3; const effort = effortHeuristic('seo');
+      issues.push({
+        id: createId(), type: 'seo', pageUrl: p.url, title: 'Missing <title>',
+        evidence: 'Page lacks a <title> tag',
+        severity: sev, impact, effort, score: sev * impact - effort,
+        fixSteps: ['Add a concise, descriptive title (30–65 chars)']
+      } as Issue);
+    } else {
+      if (title.length < 15) {
+        const sev = 3; const impact = 2; const effort = effortHeuristic('seo');
+        issues.push({ id: createId(), type: 'seo', pageUrl: p.url, title: 'Short title',
+          evidence: `Title length=${title.length}`, severity: sev, impact, effort,
+          score: sev * impact - effort, fixSteps: ['Expand title with primary keyphrase'] });
+      }
+      if (title.length > 65) {
+        const sev = 3; const impact = 2; const effort = effortHeuristic('seo');
+        issues.push({ id: createId(), type: 'seo', pageUrl: p.url, title: 'Long title',
+          evidence: `Title length=${title.length}`, severity: sev, impact, effort,
+          score: sev * impact - effort, fixSteps: ['Trim title to ~60 chars'] });
+      }
+    }
+
+    // H1 presence
+    if (!h1) {
+      const sev = 3; const impact = 3; const effort = effortHeuristic('seo');
+      issues.push({ id: createId(), type: 'seo', pageUrl: p.url, title: 'Missing H1',
+        evidence: 'No <h1> detected', severity: sev, impact, effort,
+        score: sev * impact - effort, fixSteps: ['Add a single, descriptive H1 heading'] });
+    }
+
+    // Meta description presence and length
+    if (!desc) {
+      const sev = 3; const impact = 2; const effort = effortHeuristic('seo');
+      issues.push({ id: createId(), type: 'seo', pageUrl: p.url, title: 'Missing meta description',
+        evidence: 'No meta description found', severity: sev, impact, effort,
+        score: sev * impact - effort, fixSteps: ['Add 120–160 char meta description with CTA'] });
+    } else if (desc.length > 180) {
+      const sev = 2; const impact = 2; const effort = effortHeuristic('seo');
+      issues.push({ id: createId(), type: 'seo', pageUrl: p.url, title: 'Long meta description',
+        evidence: `Meta description length=${desc.length}`, severity: sev, impact, effort,
+        score: sev * impact - effort, fixSteps: ['Trim to ~155 chars to avoid truncation'] });
+    }
+  }
+
+  // Duplicate titles across pages (exclude empty titles)
+  for (const [title, urls] of titleToPages.entries()) {
+    if (urls.length > 1) {
+      for (const u of urls) {
+        const sev = 3; const impact = 3; const effort = effortHeuristic('seo');
+        issues.push({ id: createId(), type: 'seo', pageUrl: u, title: 'Duplicate title across pages',
+          evidence: `Title "${title}" appears on ${urls.length} pages`, severity: sev, impact, effort,
+          score: sev * impact - effort, fixSteps: ['Differentiate titles per page purpose'] });
+      }
+    }
+  }
+
   // Journey failures
   for (const j of journeys) {
     if (typeof j.failedAt === 'number') {
@@ -122,4 +200,3 @@ export function prioritize(pages: PageRun[], journeys: Journey[]): Issue[] {
   issues.sort((a, b) => b.score - a.score);
   return issues;
 }
-

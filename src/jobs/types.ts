@@ -74,6 +74,13 @@ export interface JobOutputs {
     reportHtml?: string;
     reportHtmlPath?: string;
   };
+  bench?: {
+    targets: Array<{
+      url: string;
+      origin: string;
+      page?: PageRun;
+    }>;
+  };
 }
 
 export interface EnginesOptions {
@@ -84,6 +91,7 @@ export interface EnginesOptions {
 export interface JobOptions {
   maxDepth: number;
   engines?: EnginesOptions;
+  competitors?: string[];
 }
 
 export interface Job {
@@ -92,6 +100,7 @@ export interface Job {
   options: JobOptions;
   status: 'queued' | 'running' | 'done' | 'error';
   progress: number; // 0-100
+  stage?: string; // e.g., queued|crawl|perf|a11y|journeys|synthesis|done|error
   createdAt: string;
   updatedAt: string;
   summary?: string;

@@ -75,6 +75,7 @@ export async function runJourneysPuppeteer(baseUrl: string, jobId: string, flows
 
     const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH || undefined;
     const headless = process.env.PUPPETEER_HEADLESS === 'false' ? false : true;
+    const screenshotAll = String(process.env.JOURNEY_SCREENSHOTS || '').toLowerCase() === 'all';
     const chromeArgs = [
       '--headless=new',
       '--no-sandbox',
@@ -133,15 +134,33 @@ export async function runJourneysPuppeteer(baseUrl: string, jobId: string, flows
                   await page.waitForTimeout(500);
                 }
               } catch {}
-              steps.push({ action: `visit ${target}`, selector: target, ok: true, t: Date.now() - t0 });
+              const okStep: JourneyStep = { action: `visit ${target}`, selector: target, ok: true, t: Date.now() - t0 };
+              if (screenshotAll) {
+                const shot = `runs/${jobId}/journeys/${flow.name.replace(/[^a-z0-9_-]+/gi,'_')}-step${i+1}.png`;
+                await takeScreenshot(page, shot);
+                okStep.screenshotPath = shot;
+              }
+              steps.push(okStep);
             } else if (s.action === 'click') {
               await page.waitForSelector(s.selector, { timeout: 10000, visible: true }).catch(() => {});
               await page.click(s.selector);
-              steps.push({ action: 'click', selector: s.selector, ok: true, t: Date.now() - t0 });
+              const okStep: JourneyStep = { action: 'click', selector: s.selector, ok: true, t: Date.now() - t0 };
+              if (screenshotAll) {
+                const shot = `runs/${jobId}/journeys/${flow.name.replace(/[^a-z0-9_-]+/gi,'_')}-step${i+1}.png`;
+                await takeScreenshot(page, shot);
+                okStep.screenshotPath = shot;
+              }
+              steps.push(okStep);
             } else if (s.action === 'type') {
               await page.waitForSelector(s.selector, { timeout: 10000, visible: true }).catch(() => {});
               await page.type(s.selector, s.value ?? '', { delay: 10 });
-              steps.push({ action: `type ${s.selector}`, selector: s.selector, ok: true, t: Date.now() - t0 });
+              const okStep: JourneyStep = { action: `type ${s.selector}`, selector: s.selector, ok: true, t: Date.now() - t0 };
+              if (screenshotAll) {
+                const shot = `runs/${jobId}/journeys/${flow.name.replace(/[^a-z0-9_-]+/gi,'_')}-step${i+1}.png`;
+                await takeScreenshot(page, shot);
+                okStep.screenshotPath = shot;
+              }
+              steps.push(okStep);
             } else if (s.action === 'wait') {
               const ms = s.ms || 200;
               try {
@@ -150,7 +169,13 @@ export async function runJourneysPuppeteer(baseUrl: string, jobId: string, flows
                 } else {
                   await new Promise<void>(r => setTimeout(r, ms));
                 }
-                steps.push({ action: 'wait', selector: '', ok: true, t: Date.now() - t0 });
+                const okStep: JourneyStep = { action: 'wait', selector: '', ok: true, t: Date.now() - t0 };
+                if (screenshotAll) {
+                  const shot = `runs/${jobId}/journeys/${flow.name.replace(/[^a-z0-9_-]+/gi,'_')}-step${i+1}.png`;
+                  await takeScreenshot(page, shot);
+                  okStep.screenshotPath = shot;
+                }
+                steps.push(okStep);
               } catch (e: any) {
                 steps.push({ action: 'wait', selector: '', ok: false, t: Date.now() - t0, error: e?.message || 'wait failed' });
                 throw e;
@@ -159,10 +184,22 @@ export async function runJourneysPuppeteer(baseUrl: string, jobId: string, flows
               await page.waitForSelector(s.selector, { timeout: 10000 });
               const txt = await page.$eval(s.selector, (el: any) => (el.textContent || '').trim());
               if (!txt.includes(s.contains)) throw new Error(`Text not found: ${s.contains}`);
-              steps.push({ action: `assertText ${s.selector}`, selector: s.selector, ok: true, t: Date.now() - t0 });
+              const okStep: JourneyStep = { action: `assertText ${s.selector}`, selector: s.selector, ok: true, t: Date.now() - t0 };
+              if (screenshotAll) {
+                const shot = `runs/${jobId}/journeys/${flow.name.replace(/[^a-z0-9_-]+/gi,'_')}-step${i+1}.png`;
+                await takeScreenshot(page, shot);
+                okStep.screenshotPath = shot;
+              }
+              steps.push(okStep);
             } else if (s.action === 'assertVisible') {
               await page.waitForSelector(s.selector, { timeout: 10000, visible: true });
-              steps.push({ action: `assertVisible ${s.selector}`, selector: s.selector, ok: true, t: Date.now() - t0 });
+              const okStep: JourneyStep = { action: `assertVisible ${s.selector}`, selector: s.selector, ok: true, t: Date.now() - t0 };
+              if (screenshotAll) {
+                const shot = `runs/${jobId}/journeys/${flow.name.replace(/[^a-z0-9_-]+/gi,'_')}-step${i+1}.png`;
+                await takeScreenshot(page, shot);
+                okStep.screenshotPath = shot;
+              }
+              steps.push(okStep);
             }
           } catch (err: any) {
             failedAt = i;

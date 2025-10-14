@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agentic UX – Analyze Your Site</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Hide number spinners for a cleaner look */
+      input[type=number]::-webkit-outer-spin-button,
+      input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+      input[type=number] { -moz-appearance: textfield; }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <header class="bg-white shadow-sm">
+      <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="h-8 w-8 rounded bg-indigo-600"></div>
+          <h1 class="text-lg font-semibold tracking-tight">Agentic UX</h1>
+          <span class="ml-2 text-xs text-slate-500">Prototype</span>
+        </div>
+        <nav class="flex items-center gap-4 text-sm">
+          <a class="text-slate-600 hover:text-slate-900" href="/project">Projects</a>
+          <a class="text-slate-600 hover:text-slate-900" href="https://github.com/" target="_blank" rel="noreferrer">Docs</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-8">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Analyze Card -->
+        <section class="lg:col-span-2">
+          <div class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200 p-6">
+            <h2 class="text-xl font-semibold">Analyze a Site</h2>
+            <p class="mt-1 text-sm text-slate-600">Paste a URL. We’ll crawl, run accessibility & performance checks, then generate an executive storyboard with quick wins.</p>
+            <form id="analyzeForm" class="mt-5 space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-700">Site URL</label>
+                <input required name="url" type="url" placeholder="https://example.com" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" />
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700">Max Depth</label>
+                  <input name="maxDepth" type="number" min="1" max="3" value="2" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700">Crawler</label>
+                  <select name="crawler" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                    <option value="http" selected>HTTP (no browser)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700">Accessibility</label>
+                  <select name="a11y" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                    <option value="pa11y" selected>Pa11y (WCAG 2.1 AA)</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700">Competitors (optional)</label>
+                <input name="competitors" placeholder="https://a.com, https://b.com" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" />
+                <p class="mt-1 text-xs text-slate-500">Comma-separated, up to 3.</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <button id="submitBtn" type="submit" class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 text-white px-4 py-2 font-medium hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2.94 2.94a1.5 1.5 0 012.122 0l11.998 12a1.5 1.5 0 11-2.122 2.12l-3.915-3.915-2.829 2.829a1 1 0 01-1.414 0l-4.24-4.24a1 1 0 010-1.414l2.829-2.829L2.94 5.06a1.5 1.5 0 010-2.12z"/></svg>
+                  Analyze
+                </button>
+                <div id="status" class="text-sm text-slate-600"></div>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- Side Panel -->
+        <aside class="space-y-6">
+          <div class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200 p-6">
+            <h3 class="text-base font-semibold">Projects</h3>
+            <p class="mt-1 text-sm text-slate-600">Open a project by origin to view historical runs and diffs.</p>
+            <form id="projectForm" class="mt-3 flex items-center gap-2">
+              <input id="projectOrigin" placeholder="https://example.com" class="flex-1 rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" />
+              <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">Open</button>
+            </form>
+          </div>
+          <div class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200 p-6">
+            <h3 class="text-base font-semibold">How It Works</h3>
+            <ol class="mt-2 space-y-1 text-sm text-slate-700 list-decimal list-inside">
+              <li>Crawl same-origin pages (max depth).</li>
+              <li>Run Pa11y (WCAG) and Lighthouse (perf/SEO).</li>
+              <li>Synthesize a prioritized backlog and storyboard.</li>
+              <li>Export Fix Pack, PR Pack, ROI, and Jira CSV.</li>
+            </ol>
+          </div>
+        </aside>
+      </div>
+
+      <section class="mt-8">
+        <div class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200 p-6">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold">Recent Runs</h2>
+            <div class="flex items-center gap-2 text-sm">
+              <label class="text-slate-600">Filter by origin</label>
+              <input id="runsFilter" placeholder="https://example.com" class="rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" />
+              <button id="runsRefresh" class="rounded-lg border border-slate-300 px-3 py-2 hover:bg-slate-50">Refresh</button>
+            </div>
+          </div>
+          <div id="runsEmpty" class="mt-4 text-sm text-slate-500 hidden">No runs found.</div>
+          <ul id="runsList" class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></ul>
+        </div>
+      </section>
+    </main>
+
+    <footer class="mt-10 py-8 text-center text-xs text-slate-500">In-memory prototype. Reports and artifacts are stored under <code>runs/</code>.</footer>
+
+    <script>
+      const f = document.getElementById('analyzeForm');
+      const statusEl = document.getElementById('status');
+      const submitBtn = document.getElementById('submitBtn');
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(f).entries());
+        const payload = {
+          url: String(data.url || '').trim(),
+          maxDepth: Math.max(1, Math.min(Number(data.maxDepth || 2), 3)),
+          engines: { crawler: data.crawler || 'http', a11y: data.a11y || 'pa11y' },
+          competitors: String(data.competitors || '').split(',').map(s => s.trim()).filter(s => /^https?:\/\//i.test(s)).slice(0,3)
+        };
+        if (!/^https?:\/\//i.test(payload.url)) {
+          statusEl.textContent = 'Please enter a valid URL (https://...)';
+          return;
+        }
+        submitBtn.disabled = true;
+        statusEl.textContent = 'Creating job…';
+        try {
+          const r = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          const j = await r.json();
+          if (j && j.jobId) {
+            statusEl.textContent = 'Job created. Redirecting to report…';
+            const reportUrl = j.reportUrl || ('/api/report/' + j.jobId);
+            window.location.href = reportUrl;
+          } else {
+            statusEl.textContent = 'Failed to create job: ' + JSON.stringify(j);
+          }
+        } catch (err) {
+          statusEl.textContent = 'Error: ' + (err && err.message ? err.message : String(err));
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+
+      // Projects quick open
+      document.getElementById('projectForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const origin = document.getElementById('projectOrigin').value.trim();
+        if (origin) window.location.href = '/project?origin=' + encodeURIComponent(origin);
+      });
+
+      // Recent runs list
+      const listEl = document.getElementById('runsList');
+      const emptyEl = document.getElementById('runsEmpty');
+      async function loadRuns() {
+        const origin = document.getElementById('runsFilter').value.trim();
+        const url = origin ? ('/api/runs?origin=' + encodeURIComponent(origin)) : '/api/runs';
+        try {
+          const r = await fetch(url);
+          const j = await r.json();
+          const runs = j && (j.runs || []);
+          listEl.innerHTML = '';
+          if (!runs.length) {
+            emptyEl.classList.remove('hidden');
+            return;
+          }
+          emptyEl.classList.add('hidden');
+          runs.slice(0, 12).forEach(run => {
+            const li = document.createElement('li');
+            li.className = 'rounded-lg border border-slate-200 bg-white p-4 hover:shadow-sm';
+            const when = new Date(run.createdAt).toLocaleString();
+            li.innerHTML = `
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <div class="text-sm font-medium text-slate-900 truncate">${escapeHtml(run.url)}</div>
+                  <div class="text-xs text-slate-500 mt-1">${escapeHtml(when)} • ${run.counts.issues} issues</div>
+                </div>
+                <a class="text-indigo-600 text-sm hover:underline" href="/api/report/${run.id}" target="_blank">Open</a>
+              </div>
+            `;
+            listEl.appendChild(li);
+          });
+        } catch (e) {
+          emptyEl.textContent = 'Failed to load runs.';
+          emptyEl.classList.remove('hidden');
+        }
+      }
+      document.getElementById('runsRefresh').addEventListener('click', (e) => { e.preventDefault(); loadRuns(); });
+      window.addEventListener('DOMContentLoaded', loadRuns);
+
+      function escapeHtml(s) {
+        return String(s)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+    </script>
+  </body>
+  </html>
+

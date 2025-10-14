@@ -13,6 +13,7 @@ export class JobStore {
       options,
       status: 'queued',
       progress: 0,
+      stage: 'queued',
       createdAt: now,
       updatedAt: now
     };

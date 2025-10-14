@@ -14,8 +14,30 @@ Lightweight Node/TypeScript prototype to analyze a site and generate an executiv
 
 **Endpoints**
 - `POST /api/analyze` → `{ jobId }` (body: `{ url, maxDepth, engines? }`).
+- Also accepts `{ competitors: string[] | string }` where string can be comma-separated URLs (max 3).
 - `GET /api/job/:id` → job status + results snapshot.
+- `GET /api/job/:id/stream` → SSE stream with `{ progress, stage, status }` events.
 - `GET /api/report/:id` → HTML storyboard.
+- `GET /api/issues/:id.json` → issues as JSON (backlog export).
+- `GET /api/issues/:id.csv` → issues as CSV (import into Jira/Sheets).
+- `GET /api/fixpack/:id.json` → generated Fix Pack (actions for SEO/Perf/A11y/Flow).
+- `GET /api/fixpack/:id.md` → Fix Pack as Markdown (copy into tickets/proposals).
+- `GET /api/roi/:id.json` → ROI estimate with optional query params: `monthlyVisitors`, `currentCVR`, `aov`.
+- `GET /api/roi/:id.md` → ROI as Markdown business case.
+- `GET /api/summary/:id.json[?llm=1]` → Business Summary (JSON). Add `?llm=1` to use Gemini.
+- `GET /api/summary/:id.md[?llm=1]` → Business Summary (Markdown). Add `?llm=1` to use Gemini.
+- `GET /api/roadmap/:id.json` → 2‑Week Plan (JSON).
+- `GET /api/jira/:id.csv` → Jira CSV export (Tasks).
+- `GET /api/jira/:id.json` → Jira items as JSON.
+- `GET /api/runs[?origin=...]` → list recent runs (optionally filter by origin).
+- `GET /api/run/:id` → run meta + job snapshot if in memory.
+- `GET /api/diff/:a/:b` → diff issue digests between two runs (new/resolved/unchanged).
+- `POST /api/triage` → body `{ digest, state }` with state in `accepted|wontfix|needs-design|null`.
+- `GET /api/triage?digests=d1,d2,...` → returns mapping of triage states.
+- `POST /api/triage/meta` → body `{ digest, state?, owner?, estimateHours?, notes? }`.
+- `GET /api/triage/meta?digests=d1,d2,...` → returns mapping to triage metadata per digest.
+- `GET /project[?origin=...]` → HTML page listing runs for a project (origin).
+- `GET /api/roast/:id?personas=sassy,dev&intensity=2` → returns persona-based roast lines for a run.
 - `GET /` → minimal UI form (URL + depth).
 
 **Project Structure**
@@ -46,6 +68,12 @@ Lightweight Node/TypeScript prototype to analyze a site and generate an executiv
 - `PUPPETEER_EXECUTABLE_PATH`: Chrome path for Puppeteer journeys (same as above).
 - `FLOWS_PATH`: JSON file with journey flows (optional). If not set or invalid, a default “smoke” flow runs.
 - `PUPPETEER_HEADLESS`: set to `false` to run journeys non‑headless (debug).
+ - `GEMINI_API_KEY`: optional. If set, enables LLM‑generated Business Summary via Gemini (use `?llm=1`).
+ - `SUMMARY_LLM_DEFAULT`: set to `true` to prefer LLM summary for `/api/summary/:id` by default.
+
+Secrets management:
+- Copy `.env.example` to `.env` and set values locally. `.env` is already in `.gitignore`.
+- In Docker/CI/Prod, prefer setting these as environment variables rather than committing `.env`.
 
 **Artifacts**
 - Report HTML: `runs/<jobId>/report.html` (also served at `/api/report/<jobId>`).
@@ -68,6 +96,21 @@ Lightweight Node/TypeScript prototype to analyze a site and generate an executiv
 - Progress streaming (SSE/websockets) and richer UI.
 - Persistence (SQLite/Postgres) and run diffs.
 - Evidence sections: A11y table + Journey screenshots gallery.
+
+Recent additions:
+- SEO heuristics (title/H1/meta description; duplicate titles).
+- Accessibility overview table in report.
+- Backlog export (JSON/CSV) from report.
+- SSE progress stream + waiting page updates.
+- Report filters (type/severity/page) and Impact/Effort matrix.
+- Run history index + diffs, and triage states (click row to toggle).
+- Diff badges in Top 5 (New/Unchanged).
+- Competitor benchmarking (first page per competitor) with quick comparison table.
+- Project runs page (`/project`) and print-friendly PDF via “Download PDF” button in the report.
+- Roast Mode: persona-based, evidence-aware quips with honesty slider; API `GET /api/roast/:id`.
+- Fix Pack v1: SEO titles/descriptions, LCP/INP/CLS improvements, A11y fixes; download JSON/Markdown from the report.
+ - ROI v1: competitor gaps + revenue impact ranges; JSON/Markdown endpoints.
+ - Business Summary + 2‑Week Plan (JSON/Markdown), with optional Gemini LLM for more natural narrative.
 
 ## Deploy
 

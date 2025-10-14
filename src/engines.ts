@@ -46,3 +46,25 @@ export async function runJourneysAgent(baseUrl: string, jobId: string): Promise<
     return [];
   }
 }
+
+// Minimal competitor benchmarking: crawl root page only, then run audits on that page.
+export async function runBenchmarkTargets(urls: string[]): Promise<Array<{ url: string; origin: string; page?: PageRun }>> {
+  const results: Array<{ url: string; origin: string; page?: PageRun }> = [];
+  const uniq = Array.from(new Set((urls || []).filter(u => /^https?:\/\//i.test(String(u))))).slice(0, 3);
+  for (const u of uniq) {
+    try {
+      const origin = new URL(u).origin;
+      const pages = await runCrawler(u, 0, 'http' as any);
+      const first = pages[0];
+      if (first) {
+        // Run lightweight audits on this single page
+        await runLighthouseAudit([first]);
+        await runAxeAudit([first]);
+      }
+      results.push({ url: u, origin, page: first });
+    } catch {
+      try { results.push({ url: u, origin: u, page: undefined }); } catch { results.push({ url: u, origin: u }); }
+    }
+  }
+  return results;
+}
