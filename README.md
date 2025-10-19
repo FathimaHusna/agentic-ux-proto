@@ -143,6 +143,15 @@ Recent additions:
  - ROI v1: competitor gaps + revenue impact ranges; JSON/Markdown endpoints.
  - Business Summary + 2‑Week Plan (JSON/Markdown), with optional Gemini LLM for more natural narrative.
 
+### Report Mode
+- Business‑only by default: technical sections and debug/export links are hidden and not required for sharing or printing.
+- Printing tip: when saving to PDF, disable "Headers and footers" to avoid page URL text on each page.
+
+## Docs
+- Product doc (PRD): docs/product/PRD.md
+- Technical design + diagrams: docs/technical/TECH_DESIGN.md and docs/technical/architecture.mmd
+- Draft article: docs/article/ARTICLE.md
+
 ## Deploy
 
 ### Option A: Docker (recommended)

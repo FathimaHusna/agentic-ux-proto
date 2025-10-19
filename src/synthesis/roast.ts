@@ -35,30 +35,38 @@ function stepFromFlowEvidence(evidence?: string): string | undefined {
   return m ? m[1] : undefined;
 }
 
+function friendlyMetric(name?: string): string {
+  const n = (name || '').toLowerCase();
+  if (n.includes('largest-contentful-paint')) return 'page load';
+  if (n.includes('interactive')) return 'interaction delay';
+  if (n.includes('cumulative-layout-shift')) return 'layout shift';
+  return 'performance';
+}
+
 function buildLine(persona: PersonaId, i: Issue, intensity: 1|2|3): string {
   const t = i.type;
   if (t === 'perf') {
-    const name = i.metric?.name || 'performance';
+    const name = friendlyMetric(i.metric?.name);
     const v = i.metric?.value;
     if (persona === 'sassy') {
       const adj = pickIntensity(intensity, 'sleepy', 'sluggish', 'comatose');
-      return `Sassy Designer: Your ${name.toUpperCase()} is ${adj} (${v}ms). Give that hero section some cardio.`;
+      return `Sassy Designer: ${name} feels ${adj} (${v}ms). Speeding up the first screen will help.`;
     }
     if (persona === 'dev') {
-      return `Grumpy Dev: ${name.toUpperCase()}=${v}ms. Inline critical CSS, defer non-essentials, stop blocking the main thread.`;
+      return `Grumpy Dev: ${name}=${v}ms. Inline critical CSS; defer non‑essentials; trim long tasks.`;
     }
     if (persona === 'coach') {
-      return `Conversion Coach: ${name.toUpperCase()}=${v}ms. Faster pages convert better—aim for LCP < 2500ms.`;
+      return `Conversion Coach: ${name}=${v}ms. Faster first screens lift conversion.`;
     }
     if (persona === 'genz') {
       const adj = pickIntensity(intensity, 'kinda mid', 'giving lag', 'giving dial-up vibes');
-      return `Gen Z Critic: Bestie, this ${name.toUpperCase()} is ${adj} (${v}ms). Yikes.`;
+      return `Gen Z Critic: Bestie, this ${name} is ${adj} (${v}ms). Yikes.`;
     }
     if (persona === 'seo') {
-      return `SEO Shark: ${name.toUpperCase()}=${v}ms. Slow pages bleed rankings and crawl budget.`;
+      return `SEO Shark: ${name}=${v}ms. Slow pages bleed rankings and clicks.`;
     }
     if (persona === 'corp') {
-      return `Corporate Consultant: Recommend a phased initiative to reduce ${name.toUpperCase()} to target thresholds via critical-path optimization.`;
+      return `Corporate Consultant: Recommend a phased initiative to reduce ${name} via critical‑path optimization.`;
     }
   }
   if (t === 'a11y') {

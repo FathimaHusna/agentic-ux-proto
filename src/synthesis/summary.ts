@@ -38,26 +38,26 @@ export function buildSummary(job: Job, pages: PageRun[], journeys: Journey[], is
   const topImpact = roi ? `${pct(roi.aggregated.min)} – ${pct(roi.aggregated.max)}` : 'meaningful';
 
   const abstract = [
-    `We analyzed ${site} across performance, accessibility, SEO, and key user journeys.`,
-    lcp && lcp > 2500 ? `The hero feels slow (LCP ≈ ${Math.round(lcp)}ms).` : '',
-    flowFail ? `A critical journey failed; fixing this will immediately unblock users.` : '',
-    a11yCount > 0 ? `We found accessibility issues that limit reach and task success.` : '',
-    seoIssues > 0 ? `Titles/meta can better communicate value and improve CTR.` : '',
+    `We analyzed ${site} across speed, accessibility, messaging, and key journeys.`,
+    lcp && lcp > 2500 ? `The first screen loads slowly; speeding it up will improve first impression.` : '',
+    flowFail ? `A key user journey failed; fixing it will immediately unblock users.` : '',
+    a11yCount > 0 ? `We found accessibility gaps that reduce reach and task success.` : '',
+    seoIssues > 0 ? `Page titles and descriptions can better communicate value to improve clicks.` : '',
     `Addressing the top opportunities is expected to lift conversion by ${topImpact}.`
   ].filter(Boolean).join(' ');
 
   const themes: SummaryTheme[] = [];
   themes.push({ title: 'Faster First Impression', bullets: [
-    lcp && lcp > 2500 ? `Reduce LCP to < 2500ms with critical CSS + preload hero image/font.` : 'Ensure hero and fonts load fast on first view.',
-    perfIssues > 0 ? `Resolve ${perfIssues} performance opportunities (LCP/INP/CLS).` : 'Verify performance budgets and preloading.'
+    lcp && lcp > 2500 ? `Make the first screen load faster: inline critical CSS, preload hero image and font.` : 'Ensure hero and fonts load fast on first view.',
+    perfIssues > 0 ? `Fix performance opportunities that slow down the page.` : 'Verify performance budgets and preloading.'
   ]});
   themes.push({ title: 'Clarity and Trust', bullets: [
-    seoIssues > 0 ? `Clarify page titles/meta to communicate value and improve CTR.` : 'Keep titles/meta descriptive and unique.',
-    a11yCount > 0 ? `Fix key a11y issues (alt text, labels, contrast).` : 'Maintain accessible components and patterns.'
+    seoIssues > 0 ? `Clarify page titles and descriptions to communicate value and improve clicks.` : 'Keep titles/descriptions descriptive and unique.',
+    a11yCount > 0 ? `Fix key accessibility issues (alt text, labels, contrast).` : 'Maintain accessible components and patterns.'
   ]});
   themes.push({ title: 'Unblock Journeys', bullets: [
-    flowFail ? `Stabilize failing journey steps (selectors, error handling).` : 'Add tests to guard key flows.',
-    `Add clear validation and helpful inline guidance for forms.`
+    flowFail ? `Stabilize any failing steps and handle errors clearly.` : 'Add simple checks to guard key flows.',
+    `Make forms forgiving: clear validation and helpful inline guidance.`
   ]});
 
   const nextSteps: string[] = [];

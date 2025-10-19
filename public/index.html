@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Agentic UX – Analyze Your Site</title>
+    <title>Agentic UX – Website Scanner</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       /* Hide number spinners for a cleaner look */
@@ -21,42 +21,51 @@
           <span class="ml-2 text-xs text-slate-500">Prototype</span>
         </div>
         <nav class="flex items-center gap-4 text-sm">
-          <a class="text-slate-600 hover:text-slate-900" href="/project">Projects</a>
-          <a class="text-slate-600 hover:text-slate-900" href="https://drive.google.com/drive/u/0/folders/1SBHk-qbxNw0zBkx1bpDDZPhxHc1visyd" target="_blank" rel="noreferrer">Docs</a>
+          <a class="text-slate-600 hover:text-slate-900" href="/project">Past Scans</a>
+          <a class="text-slate-600 hover:text-slate-900" href="https://drive.google.com/drive/u/0/folders/1SBHk-qbxNw0zBkx1bpDDZPhxHc1visyd" target="_blank" rel="noreferrer">Guide</a>
         </nav>
       </div>
     </header>
 
     <main class="max-w-6xl mx-auto px-4 py-8">
+      <div class="mb-4 rounded-lg bg-indigo-50 text-indigo-900 border border-indigo-200 p-4 text-sm">New here? Paste your website and click <strong>Scan Website</strong>. We’ll do the rest. Typical scan takes 1–3 minutes.</div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Analyze Card -->
         <section class="lg:col-span-2">
           <div class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200 p-6">
-            <h2 class="text-xl font-semibold">Analyze a Site</h2>
-            <p class="mt-1 text-sm text-slate-600">Paste a URL. We’ll crawl, run accessibility & performance checks, then generate an executive storyboard with quick wins.</p>
+            <h2 class="text-xl font-semibold">Scan a Website</h2>
+            <p class="mt-1 text-sm text-slate-600">Paste your website address. We’ll scan a few pages, check speed and accessibility, and give you a simple summary with quick fixes.</p>
             <form id="analyzeForm" class="mt-5 space-y-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700">Site URL</label>
+                <label class="block text-sm font-medium text-slate-700">Website address</label>
                 <input required name="url" type="url" placeholder="https://example.com" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" />
               </div>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label class="block text-sm font-medium text-slate-700">Max Depth</label>
+                  <label class="block text-sm font-medium text-slate-700">Pages to scan (depth)</label>
                   <input name="maxDepth" type="number" min="1" max="3" value="2" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-slate-700">Crawler</label>
-                  <select name="crawler" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
-                    <option value="http" selected>HTTP (no browser)</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-slate-700">Accessibility</label>
-                  <select name="a11y" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
-                    <option value="pa11y" selected>Pa11y (WCAG 2.1 AA)</option>
-                  </select>
+                  <p class="mt-1 text-xs text-slate-500">1–3 recommended.</p>
                 </div>
               </div>
+              <details class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <summary class="cursor-pointer text-sm font-medium text-slate-700">Advanced options</summary>
+                <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700">Scan mode</label>
+                    <select name="crawler" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                      <option value="http" selected>Fast scan (no images/scripts)</option>
+                    </select>
+                    <p class="mt-1 text-xs text-slate-500">Good for quick checks.</p>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700">Accessibility checks</label>
+                    <select name="a11y" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                      <option value="pa11y" selected>Common issues (industry guidelines)</option>
+                    </select>
+                    <p class="mt-1 text-xs text-slate-500">Catches missing labels, contrast, and more.</p>
+                  </div>
+                </div>
+              </details>
               <div>
                 <label class="block text-sm font-medium text-slate-700">Competitors (optional)</label>
                 <input name="competitors" placeholder="https://a.com, https://b.com" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" />
@@ -65,7 +74,7 @@
               <div class="flex items-center gap-3">
                 <button id="submitBtn" type="submit" class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 text-white px-4 py-2 font-medium hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
                   <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2.94 2.94a1.5 1.5 0 012.122 0l11.998 12a1.5 1.5 0 11-2.122 2.12l-3.915-3.915-2.829 2.829a1 1 0 01-1.414 0l-4.24-4.24a1 1 0 010-1.414l2.829-2.829L2.94 5.06a1.5 1.5 0 010-2.12z"/></svg>
-                  Analyze
+                  Scan Website
                 </button>
                 <div id="status" class="text-sm text-slate-600"></div>
               </div>
@@ -76,8 +85,8 @@
         <!-- Side Panel -->
         <aside class="space-y-6">
           <div class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200 p-6">
-            <h3 class="text-base font-semibold">Projects</h3>
-            <p class="mt-1 text-sm text-slate-600">Open a project by origin to view historical runs and diffs.</p>
+            <h3 class="text-base font-semibold">Past Scans</h3>
+            <p class="mt-1 text-sm text-slate-600">Open by website address to view previous results and changes.</p>
             <form id="projectForm" class="mt-3 flex items-center gap-2">
               <input id="projectOrigin" placeholder="https://example.com" class="flex-1 rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" />
               <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">Open</button>
@@ -86,10 +95,10 @@
           <div class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200 p-6">
             <h3 class="text-base font-semibold">How It Works</h3>
             <ol class="mt-2 space-y-1 text-sm text-slate-700 list-decimal list-inside">
-              <li>Crawl same-origin pages (max depth).</li>
-              <li>Run Pa11y (WCAG) and Lighthouse (perf/SEO).</li>
-              <li>Synthesize a prioritized backlog and storyboard.</li>
-              <li>Export Fix Pack, PR Pack, ROI, and Jira CSV.</li>
+              <li>We scan a handful of pages on your site.</li>
+              <li>We check for common accessibility and speed issues.</li>
+              <li>You get a clear summary with the top fixes.</li>
+              <li>Download an easy action plan if you want.</li>
             </ol>
           </div>
         </aside>
@@ -98,9 +107,9 @@
       <section class="mt-8">
         <div class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200 p-6">
           <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold">Recent Runs</h2>
+            <h2 class="text-lg font-semibold">Recent Scans</h2>
             <div class="flex items-center gap-2 text-sm">
-              <label class="text-slate-600">Filter by origin</label>
+              <label class="text-slate-600">Filter by website</label>
               <input id="runsFilter" placeholder="https://example.com" class="rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" />
               <button id="runsRefresh" class="rounded-lg border border-slate-300 px-3 py-2 hover:bg-slate-50">Refresh</button>
             </div>
@@ -111,7 +120,7 @@
       </section>
     </main>
 
-    <footer class="mt-10 py-8 text-center text-xs text-slate-500">In-memory prototype. Reports and artifacts are stored under <code>runs/</code>.</footer>
+    <footer class="mt-10 py-8 text-center text-xs text-slate-500">Prototype: results are saved under <code>runs/</code> on this machine.</footer>
 
     <script>
       const f = document.getElementById('analyzeForm');
@@ -180,7 +189,7 @@
               <div class="flex items-start justify-between gap-2">
                 <div>
                   <div class="text-sm font-medium text-slate-900 truncate">${escapeHtml(run.url)}</div>
-                  <div class="text-xs text-slate-500 mt-1">${escapeHtml(when)} • ${run.counts.issues} issues</div>
+                  <div class="text-xs text-slate-500 mt-1">${escapeHtml(when)} • ${run.counts.issues} findings</div>
                 </div>
                 <a class="text-indigo-600 text-sm hover:underline" href="/api/report/${run.id}" target="_blank">Open</a>
               </div>
@@ -206,4 +215,3 @@
     </script>
   </body>
   </html>
-

@@ -1,0 +1,69 @@
+%% Agentic UX — Architecture Diagrams (Mermaid)
+
+%% Component/Data Flow
+flowchart LR
+  subgraph Client
+    UI[Landing Page / Report Viewer]
+  end
+
+  subgraph Server[Node.js Server]
+    API[/HTTP API/]
+    JR[Job Runner]
+    SYN[Synthesis]
+  end
+
+  subgraph Engines
+    CRAWL[Crawler (HTTP)]
+    PERF[Lighthouse]
+    A11Y[Pa11y]
+    FLOWS[Puppeteer Journeys]
+  end
+
+  subgraph Storage
+    RUNS[(runs/<id> artifacts)]
+    META[(run index + triage JSON)]
+  end
+
+  UI -- POST /api/analyze --> API
+  API --> JR
+  JR --> CRAWL --> JR
+  JR --> PERF --> JR
+  JR --> A11Y --> JR
+  JR --> FLOWS --> JR
+  JR --> SYN --> RUNS
+  API <-- GET /api/report/:id --> RUNS
+  API <-- GET exports --> RUNS
+  API <-- GET /api/runs & diff --> META
+  UI <-- SSE /api/job/:id/stream --> API
+
+%% Sequence: Analyze → Report
+---
+sequenceDiagram
+  participant User
+  participant API as HTTP API
+  participant JR as Job Runner
+  participant C as Crawler
+  participant L as Lighthouse
+  participant P as Pa11y
+  participant F as Puppeteer
+  participant S as Synthesis
+  participant R as runs/
+
+  User->>API: POST /api/analyze { url, maxDepth, competitors }
+  API->>JR: createJob + enqueueJob(id)
+  User-->>API: GET /api/job/:id/stream (SSE)
+  JR->>C: crawl(url, depth)
+  C-->>JR: pages[] (links + meta)
+  JR->>L: audit(pages[0..2])
+  L-->>JR: lhr audits
+  JR->>P: check(pages[0..2])
+  P-->>JR: axe violations
+  JR->>F: run flows (optional)
+  F-->>JR: steps + screenshots
+  JR->>S: prioritize + storyboard + ROI + Fix Pack
+  S-->>JR: report.html + outputs.json
+  JR->>R: write artifacts
+  JR-->>API: update job { done }
+  User->>API: GET /api/report/:id
+  API-->>User: report.html
+

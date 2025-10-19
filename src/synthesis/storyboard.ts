@@ -11,6 +11,7 @@ export function buildStoryboardHtml(
   issues: Issue[],
   benchTargets?: Array<{ url: string; origin: string; page?: PageRun }>
 ): string {
+  const SHOW_TECH = String(process.env.REPORT_INCLUDE_TECH || "").toLowerCase() === "true";
   const top = issues.slice(0, 5);
   const hasPerf = pages.some(p => p.lhr && p.lhr.audits);
   const hasA11y = pages.some(p => p.axe && Array.isArray(p.axe.violations) && p.axe.violations.length > 0);
@@ -70,9 +71,13 @@ export function buildStoryboardHtml(
   const issuesHtml = top
     .map(i => {
       const d = issueDigest(i);
-      return `<li data-digest="${d}"><span class="badge" id="b-${d}">•</span> <strong>${escapeHtml(i.title)}</strong> — score ${i.score} — ${escapeHtml(i.evidence)}
-      <br/><small>Type: ${i.type}${i.pageUrl ? ' | ' + escapeHtml(i.pageUrl) : ''}</small>
-      <br/><small>Fix: ${i.fixSteps.map(escapeHtml).join('; ')}</small></li>`;
+      const title = humanizeIssueTitle(i);
+      const why = friendlyWhy(i);
+      const how = friendlyHow(i);
+      const where = i.pageUrl ? ` — <small>${escapeHtml(i.pageUrl)}</small>` : '';
+      return `<li data-digest="${d}"><span class="badge" id="b-${d}">•</span> <strong>${escapeHtml(title)}</strong>${where}
+      <br/><small>${escapeHtml(why)}</small>
+      <br/><small><strong>What to do:</strong> ${escapeHtml(how)}</small></li>`;
     })
     .join('');
 
@@ -80,7 +85,7 @@ export function buildStoryboardHtml(
   const engines = job.options?.engines || {} as any;
   const perfEngine = hasPerf ? 'lighthouse' : 'none';
   const journeysEngine = (journeys && journeys.length) ? 'puppeteer' : 'none';
-  const enginesLine = `Crawler: ${engines.crawler || 'none'} | A11y: ${engines.a11y || 'none'} | Perf: ${perfEngine} | Journeys: ${journeysEngine}`;
+  const enginesLine = `Scan: ${engines.crawler ? 'fast' : 'standard'} | Accessibility checks: ${engines.a11y ? 'on' : 'off'} | Speed checks: ${hasPerf ? 'on' : 'off'} | User journeys: ${journeys && journeys.length ? 'on' : 'off'}`;
   const roi = (() => { try { return buildROI(job as any, pages as any, issues as any, benchTargets as any, {}); } catch { return null; } })();
   const fix = (() => { try { return buildFixPack(job as any, pages as any, issues as any); } catch { return null; } })();
   const summary = (() => { try { return buildSummary(job as any, pages as any, journeys as any, issues as any, fix as any, roi as any); } catch { return null; } })();
@@ -91,9 +96,9 @@ export function buildStoryboardHtml(
     const origin = new URL(job.url).origin;
     // Note: listRuns is async; we can't await inside this sync function.
     // Workaround: embed a client-side fetch to compute diff counts.
-    diffHtml = `<div class="card" style="margin-top:8px;"><h2>Run Diffs</h2>
-      <p class="muted">Compared to previous run for this origin (if any): <span id="diff">loading…</span></p>
-      <p><small><a id="diffLink" href="#" target="_blank" style="display:none;">View JSON diff</a></small></p>
+    diffHtml = `<div class="card technical-only" style="margin-top:8px;"><h2>Changes vs Previous</h2>
+      <p class="muted">Compared to the last scan for this site (if any): <span id="diff">loading…</span></p>
+      <p><small><a id="diffLink" href="#" target="_blank" style="display:none;">Open JSON diff</a></small></p>
       <script>
         (async function(){
           try{
@@ -132,11 +137,21 @@ export function buildStoryboardHtml(
       .controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin: 8px 0; }
       .badge { display:inline-block; padding:2px 6px; border-radius:999px; font-size:12px; border:1px solid #ccc; }
       .muted { color:#666; }
+      .technical-only { display: none; }
       .matrix { display:grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: minmax(80px, auto); gap:8px; }
       .cell { border:1px dashed #ddd; padding:8px; border-radius:6px; min-height:80px; position:relative; }
       .cell h4 { margin:0 0 6px 0; font-size:12px; color:#444; }
       .dot { display:inline-block; background:#4f46e5; color:#fff; border-radius:999px; padding:2px 6px; margin:2px; font-size:11px; white-space:nowrap; }
       .actions { margin: 8px 0; display:flex; gap: 8px; align-items:center; }
+      .overview { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin: 12px 0; }
+      .ov { border:1px solid #eee; border-radius:8px; padding:10px; background:#fff; }
+      .ov h4 { margin:0 0 4px 0; font-size:12px; color:#475569; font-weight:600; }
+      .ov .val { font-size:18px; font-weight:600; color:#0f172a; }
+      .chip { display:inline-block; padding:2px 6px; border-radius:999px; font-size:12px; margin-left:6px; }
+      .good { background:#e8f5e9; color:#166534; border:1px solid #a7f3d0; }
+      .warn { background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; }
+      .bad  { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+      .na   { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
       @media print {
         .controls, .actions { display: none !important; }
         a { color: black; text-decoration: none; }
@@ -148,50 +163,76 @@ export function buildStoryboardHtml(
     <h1>Agentic UX – Executive Storyboard</h1>
     <p><strong>Site:</strong> ${escapeHtml(job.url)}<br/>
        <strong>Run:</strong> ${created}<br/>
-       <strong>Engines:</strong> ${escapeHtml(enginesLine)}<br/>
+       <span class="technical-only"><strong>Scan details:</strong> ${escapeHtml(enginesLine)}<br/></span>
        <strong>Summary:</strong> ${escapeHtml(job.summary || '')}</p>
     <div class="actions">
-      <a class="badge" href="/project?origin=${escapeHtml(new URL(job.url).origin)}" target="_blank">View Project Runs</a>
+      <a class="badge" href="/project?origin=${escapeHtml(new URL(job.url).origin)}" target="_blank">View Past Scans</a>
       <button onclick="window.print()">Download PDF</button>
-      <label style="margin-left:8px">View <select id="viewMode"><option value="business" selected>Business</option><option value="technical">Technical</option><option value="full">Full</option></select></label>
+      
     </div>
     ${diffHtml}
+
+    ${(() => {
+      try {
+        const lcp = pages?.[0]?.lhr?.audits?.['largest-contentful-paint']?.numericValue as number | undefined;
+        const a11yCount = pages.reduce((acc, p) => acc + ((p.axe?.violations || []).length), 0);
+        const seoIssues = (issues || []).filter(i => i.type === 'seo').length;
+        const flowFail = (journeys || []).some(j => typeof j.failedAt === 'number');
+        function secs(ms?: number){ return (typeof ms === 'number') ? (ms/1000).toFixed(1) + 's' : '–'; }
+        function chip(lbl: string){ return `<span class="chip ${lbl}">${lbl==='good'?'Good':lbl==='warn'?'OK':lbl==='bad'?'Needs work':'N/A'}</span>`; }
+        const speedLbl = (typeof lcp === 'number') ? (lcp < 2500 ? 'good' : (lcp < 4000 ? 'warn' : 'bad')) : 'na';
+        const a11yLbl = (a11yCount === 0 ? 'good' : 'bad');
+        const seoLbl = (seoIssues > 0 ? 'warn' : 'good');
+        const flowLbl = (flowFail ? 'bad' : 'good');
+        return `<div class="overview business-only">
+          <div class="ov"><h4>Speed (first screen)</h4><div class="val">${secs(lcp)} ${chip(speedLbl)}</div></div>
+          <div class="ov"><h4>Clarity (titles/descriptions)</h4><div class="val">${seoIssues > 0 ? (seoIssues + ' fix(es)') : 'Looks good'} ${chip(seoLbl)}</div></div>
+          <div class="ov"><h4>Key steps</h4><div class="val">${flowFail ? 'Issue found' : 'Passed'} ${chip(flowLbl)}</div></div>
+          <div class="ov"><h4>Accessibility</h4><div class="val">${a11yCount > 0 ? (a11yCount + ' issues') : 'No issues'} ${chip(a11yLbl)}</div></div>
+        </div>`;
+      } catch { return ''; }
+    })()}
 
     <div class="grid">
       <div class="card business-only">
         <h2>Business Summary</h2>
         ${summary ? `<p>${escapeHtml(summary.abstract)}</p>
           <ul>${summary.themes.map(t => `<li><strong>${escapeHtml(t.title)}:</strong> ${t.bullets.map(escapeHtml).join(' · ')}</li>`).join('')}</ul>
-          <p><small><a href="/api/summary/${escapeHtml(job.id)}.json" target="_blank">Summary JSON</a> · <a href="/api/summary/${escapeHtml(job.id)}.md" target="_blank">Summary Markdown</a></small></p>` : '<p class="muted">Summary unavailable.</p>'}
+          <p class="technical-only"><small><a href="/api/summary/${escapeHtml(job.id)}.json" target="_blank">Summary JSON</a> · <a href="/api/summary/${escapeHtml(job.id)}.md" target="_blank">Summary Markdown</a></small></p>` : '<p class="muted">Summary unavailable.</p>'}
       </div>
       <div class="card business-only">
         <h2>Top 5 Fixes</h2>
         <ol>${issuesHtml}</ol>
-        <p><small>Export: <a href="/api/issues/${escapeHtml(job.id)}.json" target="_blank">JSON</a> · <a href="/api/issues/${escapeHtml(job.id)}.csv" target="_blank">CSV</a></small></p>
-        <p><small>Fix Pack: <a href="/api/fixpack/${escapeHtml(job.id)}.json" target="_blank">JSON</a> · <a href="/api/fixpack/${escapeHtml(job.id)}.md" target="_blank">Markdown</a></small></p>
-        <p><small>PR Pack (draft): <a href="/api/prpack/${escapeHtml(job.id)}.json" target="_blank">JSON</a> · <a href="/api/prpack/${escapeHtml(job.id)}.md" target="_blank">Markdown</a> · <a href="/api/prpack/${escapeHtml(job.id)}.patch" target="_blank">Patch</a></small></p>
-        <p><small>Planner: <a href="/api/roadmap/${escapeHtml(job.id)}.json" target="_blank">2‑Week Plan JSON</a> · Jira Export: <a href="/api/jira/${escapeHtml(job.id)}.csv" target="_blank">CSV</a> · <a href="/api/jira/${escapeHtml(job.id)}.json" target="_blank">JSON</a></small></p>
-        <p><small>Copy Coach: <a href="/api/copy/${escapeHtml(job.id)}.json" target="_blank">Suggestions JSON</a> · <a href="/api/copy/${escapeHtml(job.id)}.json?llm=1" target="_blank">Use LLM</a></small></p>
+        <p class="technical-only"><small>Export findings: <a href="/api/issues/${escapeHtml(job.id)}.json" target="_blank">Download (JSON)</a> · <a href="/api/issues/${escapeHtml(job.id)}.csv" target="_blank">Download (CSV)</a></small></p>
+        <p class="technical-only"><small>Action Plan: <a href="/api/fixpack/${escapeHtml(job.id)}.json" target="_blank">Download (JSON)</a> · <a href="/api/fixpack/${escapeHtml(job.id)}.md" target="_blank">View (Markdown)</a></small></p>
+        <p class="technical-only"><small>Draft code changes (optional): <a href="/api/prpack/${escapeHtml(job.id)}.json" target="_blank">JSON</a> · <a href="/api/prpack/${escapeHtml(job.id)}.md" target="_blank">Markdown</a> · <a href="/api/prpack/${escapeHtml(job.id)}.patch" target="_blank">Patch</a></small></p>
+        <p class="technical-only"><small>2‑Week Plan: <a href="/api/roadmap/${escapeHtml(job.id)}.json" target="_blank">Download (JSON)</a> · Jira export: <a href="/api/jira/${escapeHtml(job.id)}.csv" target="_blank">CSV</a> · <a href="/api/jira/${escapeHtml(job.id)}.json" target="_blank">JSON</a></small></p>
+        <p class="technical-only"><small>Title/Meta suggestions: <a href="/api/copy/${escapeHtml(job.id)}.json" target="_blank">View</a> · <a href="/api/copy/${escapeHtml(job.id)}.json?llm=1" target="_blank">Use AI</a></small></p>
       </div>
       <div class="card business-only">
         <h2>Business Case (ROI)</h2>
-        ${roi ? `<p>Baseline revenue (monthly): <strong id="roiBase">$${Math.round(roi.baseline.monthlyRevenue).toLocaleString()}</strong><br/>
-          Estimated CVR uplift: <strong id="roiUplift">${(roi.aggregated.min*100).toFixed(1)}% – ${(roi.aggregated.max*100).toFixed(1)}%</strong><br/>
+        ${roi ? `<p>Monthly revenue (current): <strong id="roiBase">$${Math.round(roi.baseline.monthlyRevenue).toLocaleString()}</strong><br/>
+          Estimated conversion uplift: <strong id="roiUplift">${(roi.aggregated.min*100).toFixed(1)}% – ${(roi.aggregated.max*100).toFixed(1)}%</strong><br/>
           Estimated revenue impact (monthly): <strong id="roiImpact">$${Math.round(roi.impact.monthlyRevenueMin).toLocaleString()} – $${Math.round(roi.impact.monthlyRevenueMax).toLocaleString()}</strong></p>
           <div class="controls">
-            <label>Visitors <input id="roiVisitors" type="number" min="100" step="100" value="${roi.baseline.monthlyVisitors}"></label>
-            <label>CVR <input id="roiCVR" type="number" min="0" max="1" step="0.001" value="${roi.baseline.currentCVR}"></label>
-            <label>AOV <input id="roiAOV" type="number" min="1" step="1" value="${roi.baseline.aov}"></label>
-            <button id="roiUpdate" type="button">Update</button>
-            <small><a href="/api/roi/${escapeHtml(job.id)}.json" target="_blank">ROI JSON</a> · <a href="/api/roi/${escapeHtml(job.id)}.md" target="_blank">ROI Markdown</a></small>
+            <details>
+              <summary>Adjust assumptions</summary>
+              <div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <label>Visitors <input id="roiVisitors" type="number" min="100" step="100" value="${roi.baseline.monthlyVisitors}"></label>
+                <label>Conversion rate (%) <input id="roiCVR" type="number" min="0" max="100" step="0.1" value="${(roi.baseline.currentCVR*100).toFixed(1)}"></label>
+                <label>AOV <input id="roiAOV" type="number" min="1" step="1" value="${roi.baseline.aov}"></label>
+                <button id="roiUpdate" type="button">Update</button>
+                <small class="technical-only"><a href="/api/roi/${escapeHtml(job.id)}.json" target="_blank">ROI JSON</a> · <a href="/api/roi/${escapeHtml(job.id)}.md" target="_blank">ROI Markdown</a></small>
+              </div>
+            </details>
           </div>` : '<p class="muted">ROI unavailable.</p>'}
       </div>
       <div class="card business-only">
-        <h2>Accessibility Roll‑up</h2>
+        <h2>Accessibility Check</h2>
         ${buildA11yRollupHtml(pages)}
       </div>
-      <div class="card">
-        <h2>Roast Mode</h2>
+      <div class="card technical-only">
+        <h2>Feedback Mode</h2>
         <div class="controls">
           <label><input type="checkbox" name="persona" value="sassy" checked/> Sassy Designer</label>
           <label><input type="checkbox" name="persona" value="dev"/> Grumpy Dev</label>
@@ -210,7 +251,7 @@ export function buildStoryboardHtml(
       ${hasPerf ? `<div class="card technical-only">
         <h2>Performance Metrics</h2>
         <table>
-          <thead><tr><th>Page</th><th>LCP (ms)</th><th>INP (ms)</th><th>CLS</th></tr></thead>
+          <thead><tr><th>Page</th><th>Page load (ms)</th><th>Interaction delay (ms)</th><th>Layout shift</th></tr></thead>
           <tbody>${perf}</tbody>
         </table>
       </div>` : ''}
@@ -260,29 +301,26 @@ export function buildStoryboardHtml(
 
     <script>
       (function(){
-        // View Mode
-        function setMode(m){ try {
-          var biz = document.querySelectorAll('.business-only');
-          var tech = document.querySelectorAll('.technical-only');
-          biz.forEach(function(el){ el['style'].display = (m==='technical') ? 'none' : ''; });
-          tech.forEach(function(el){ el['style'].display = (m==='business') ? 'none' : ''; });
-        } catch(e){} }
-        var sel = document.getElementById('viewMode');
-        if (sel) { sel.addEventListener('change', function(){ setMode(sel['value']); }); setMode(sel['value']); }
-
         // ROI update
         var btn = document.getElementById('roiUpdate');
         if (btn) btn.addEventListener('click', async function(){
           try{
-            var v = Number((document.getElementById('roiVisitors') as any).value||0);
-            var c = Number((document.getElementById('roiCVR') as any).value||0);
-            var a = Number((document.getElementById('roiAOV') as any).value||0);
+            var vEl = document.getElementById('roiVisitors');
+            var cEl = document.getElementById('roiCVR');
+            var aEl = document.getElementById('roiAOV');
+            var v = Number((vEl && (vEl as HTMLInputElement).value) || 0);
+            var cPerc = Number((cEl && (cEl as HTMLInputElement).value) || 0);
+            var c = cPerc / 100;
+            var a = Number((aEl && (aEl as HTMLInputElement).value) || 0);
             var r = await fetch('/api/roi/${escapeHtml(job.id)}.json?monthlyVisitors='+encodeURIComponent(String(v))+'&currentCVR='+encodeURIComponent(String(c))+'&aov='+encodeURIComponent(String(a)), { cache:'no-cache' });
             if (!r.ok) throw new Error('HTTP '+r.status);
             var j = await r.json();
-            document.getElementById('roiBase')!.textContent = '$'+Math.round(j.baseline.monthlyRevenue).toLocaleString();
-            document.getElementById('roiUplift')!.textContent = (j.aggregated.min*100).toFixed(1)+'% – '+(j.aggregated.max*100).toFixed(1)+'%';
-            document.getElementById('roiImpact')!.textContent = '$'+Math.round(j.impact.monthlyRevenueMin).toLocaleString()+' – $'+Math.round(j.impact.monthlyRevenueMax).toLocaleString();
+            var baseEl = document.getElementById('roiBase');
+            var upEl = document.getElementById('roiUplift');
+            var impEl = document.getElementById('roiImpact');
+            if (baseEl) baseEl.textContent = '$'+Math.round(j.baseline.monthlyRevenue).toLocaleString();
+            if (upEl) upEl.textContent = (j.aggregated.min*100).toFixed(1)+'% – '+(j.aggregated.max*100).toFixed(1)+'%';
+            if (impEl) impEl.textContent = '$'+Math.round(j.impact.monthlyRevenueMin).toLocaleString()+' – $'+Math.round(j.impact.monthlyRevenueMax).toLocaleString();
           }catch(e){ alert('Failed to update ROI'); }
         });
       })();
@@ -296,19 +334,19 @@ export function buildStoryboardHtml(
       </table>
     </div>
 
-    ${hasA11y ? `<div class="card" style="margin-top:16px;">
-      <h2>Accessibility Overview</h2>
+    ${hasA11y ? `<div class="card technical-only" style="margin-top:16px;">
+      <h2>Accessibility Details</h2>
       <table>
-        <thead><tr><th>Page</th><th>Violations</th><th>By Impact</th><th>Top Rules</th></tr></thead>
+        <thead><tr><th>Page</th><th>Issues</th><th>By Impact</th><th>Top Rules</th></tr></thead>
         <tbody>${a11yRows}</tbody>
       </table>
-      <p><small>Tip: Drill into selectors using your axe/Pa11y workflow.</small></p>
+      <p><small>Tip: Drill into selectors using your accessibility tooling (axe/Pa11y).</small></p>
     </div>` : ''}
 
-    ${benchTargets && benchTargets.length ? `<div class="card" style="margin-top:16px;">
-      <h2>Competitor Benchmark</h2>
+    ${benchTargets && benchTargets.length ? `<div class="card technical-only" style="margin-top:16px;">
+      <h2>Comparison</h2>
       <table>
-        <thead><tr><th>Site</th><th>LCP (ms)</th><th>INP (ms)</th><th>CLS</th><th>A11y Violations</th><th>Title</th></tr></thead>
+        <thead><tr><th>Site</th><th>Page load (ms)</th><th>Interaction delay (ms)</th><th>Layout shift</th><th>Accessibility issues</th><th>Title</th></tr></thead>
         <tbody>
           ${(function(){
             const rows: string[] = [];
@@ -339,15 +377,15 @@ export function buildStoryboardHtml(
       <p class="muted">Benchmarks scan the first page of each competitor for quick signals.</p>
     </div>` : ''}
 
-    ${hasIssues ? `<div class="card" style="margin-top:16px;">
-      <h2>All Issues</h2>
+    ${hasIssues ? `<div class="card technical-only" style="margin-top:16px;">
+      <h2>Full Findings (for teams)</h2>
       <div class="controls">
-        <label>Type <select id="f-type"><option value="">All</option><option value="perf">perf</option><option value="a11y">a11y</option><option value="seo">seo</option><option value="flow">flow</option></select></label>
-        <label>Min Severity <select id="f-sev"><option value="0">Any</option><option value="3">≥3</option><option value="4">≥4</option><option value="5">=5</option></select></label>
+        <label>Type <select id="f-type"><option value="">All</option><option value="perf">Performance</option><option value="a11y">Accessibility</option><option value="seo">SEO</option><option value="flow">Journey</option></select></label>
+        <label>Minimum priority <select id="f-sev"><option value="0">Any</option><option value="3">≥3</option><option value="4">≥4</option><option value="5">=5</option></select></label>
         <label>Page <select id="f-page"><option value="">All</option>${pages.map(p=>`<option value="${escapeHtml(p.url)}">${escapeHtml(p.url)}</option>`).join('')}</select></label>
       </div>
       <table id="issues">
-        <thead><tr><th>Type</th><th>Score</th><th>Sev</th><th>Impact</th><th>Effort</th><th>Page</th><th>Title</th><th>Evidence</th></tr></thead>
+        <thead><tr><th>Type</th><th>Priority</th><th>Severity</th><th>Impact</th><th>Effort</th><th>Page</th><th>Title</th><th>Evidence</th></tr></thead>
         <tbody>
           ${issues.map(i => {
             const d = issueDigest(i);
@@ -363,18 +401,18 @@ export function buildStoryboardHtml(
           </tr>`;}).join('')}
         </tbody>
       </table>
-      <p class="muted">Tip: Click a row to cycle triage state (accepted → wontfix → needs-design → none).</p>
+      <p class="muted">Tip: Click a row to mark status (accepted → won’t fix → needs design → none).</p>
     </div>
 
     <div class="card" style="margin-top:16px;">
       <h2>2‑Week Plan</h2>
       ${roadmap ? `<div>
-        ${roadmap.weeks.map(w => `<p><strong>${escapeHtml(w.label)}</strong><br/>${w.tasks.map(t => `[${t.owner}] ${escapeHtml(t.title)}`).join(' · ')}</p>`).join('')}
-        <p><small><a href="/api/roadmap/${escapeHtml(job.id)}.json" target="_blank">Roadmap JSON</a></small></p>
-      </div>` : '<p class="muted">Roadmap unavailable.</p>'}
+        ${roadmap.weeks.map(w => `<p><strong>${escapeHtml(w.label)}</strong><br/>${w.tasks.map(t => friendlyPlanTitle(t.title)).join(' · ')}</p>`).join('')}
+        <p class="technical-only"><small><a href="/api/roadmap/${escapeHtml(job.id)}.json" target="_blank">Roadmap JSON</a></small></p>
+      </div>` : '<p class="muted">Plan unavailable.</p>'}
     </div>
 
-    <div class="card" style="margin-top:16px;">
+    <div class="card technical-only" style="margin-top:16px;">
       <h2>Impact vs Effort Matrix</h2>
       <div class="matrix" id="matrix">
         <div class="cell" data-cell="high-low"><h4>Quick Wins (High Impact, Low Effort)</h4><div class="bucket"></div></div>
@@ -390,16 +428,17 @@ export function buildStoryboardHtml(
       <p class="muted">Placement is based on numeric impact (1–5) and effort (1–5), collapsed to low/med/high buckets.</p>
     </div>` : ''}
 
-    ${journeysHtml ? `<h2>Journeys</h2>
+    ${journeysHtml ? `<div class="card technical-only" style="margin-top:16px;">
+      <h2>Journeys</h2>
       <p><small>Artifacts: <a href="/runs/${escapeHtml(job.id)}/journeys/results.json" target="_blank">results.json</a> · <a href="/runs/${escapeHtml(job.id)}/journeys/error.log" target="_blank">error.log</a></small></p>
       ${journeysHtml}
-    ` : ''}
-    <div class="card" style="margin-top:16px;">
+    </div>` : ''}
+    <div class="card technical-only" style="margin-top:16px;">
       <h2>Journey Tools</h2>
       <p><small>Recorder: open the console on your site and run <code>fetch('/api/journeys/recorder.js').then(r=>r.text()).then(eval)</code>. Interact, then run <code>window.__uxDump()</code> to print a flow JSON (start with a <code>visit</code> step).</small></p>
       <p><small>Suggest Selector API: <code>POST /api/journeys/suggest</code> body <code>{url, selector}</code> → returns better candidates (CSS/XPath).</small></p>
       <p><small>Ad-hoc Runner: <code>POST /api/journeys/run</code> body <code>{ flow: { name, steps[] } }</code> → runs once, returns failure hints + selector suggestions.</small></p>
-      <p><small>Competitor bench JSON: <a href="/api/bench/${escapeHtml(job.id)}.json" target="_blank">/api/bench/${escapeHtml(job.id)}.json</a></small></p>
+      <p><small>Comparison JSON: <a href="/api/bench/${escapeHtml(job.id)}.json" target="_blank">/api/bench/${escapeHtml(job.id)}.json</a></small></p>
     </div>
     ${hasIssues ? `<script>
       (function(){
@@ -595,9 +634,9 @@ function humanizeIssueTitle(i: Issue): string {
     if (id.includes('g18') || id.includes('g145') || (i.title||'').toLowerCase().includes('contrast')) return 'Insufficient color contrast';
   }
   if (i.type === 'perf') {
-    if (i.metric?.name === 'largest-contentful-paint') return 'Hero is slow to load (LCP)';
-    if (i.metric?.name === 'interactive') return 'Slow input responsiveness (INP)';
-    if (i.metric?.name === 'cumulative-layout-shift') return 'Layout shifts while loading (CLS)';
+    if (i.metric?.name === 'largest-contentful-paint') return 'First screen is slow to load';
+    if (i.metric?.name === 'interactive') return 'Slow to respond to clicks/typing';
+    if (i.metric?.name === 'cumulative-layout-shift') return 'Page moves while loading';
   }
   if (i.type === 'seo') {
     const t = (i.title||'').toLowerCase();
@@ -607,4 +646,67 @@ function humanizeIssueTitle(i: Issue): string {
     if (t.includes('long meta description')) return 'Trim meta description (~155 chars)';
   }
   return i.title;
+}
+
+function friendlyPlanTitle(title: string): string {
+  try {
+    let t = title || '';
+    t = t.replace(/^Reduce LCP.*$/i, 'Speed up first screen');
+    t = t.replace(/^Improve\s*<title>\s*tag$/i, 'Clarify page title');
+    t = t.replace(/^Stabilize journeys and add tests$/i, 'Make key steps reliable');
+    // generic cleanup of any remaining jargon
+    t = t.replace(/\bLCP\b/gi, 'first screen');
+    return t;
+  } catch { return title; }
+}
+
+function friendlyWhy(i: Issue): string {
+  try {
+    if (i.type === 'perf') {
+      const m = i.metric?.name || '';
+      if (m === 'largest-contentful-paint') return 'First impression feels slow. Faster hero improves engagement.';
+      if (m === 'interactive') return 'The page is slow to respond to clicks and typing.';
+      if (m === 'cumulative-layout-shift') return 'Content moves while loading, which causes mis‑clicks and frustration.';
+      return 'Faster pages keep users engaged and reduce drop‑off.';
+    }
+    if (i.type === 'a11y') {
+      const t = (i.title||'').toLowerCase();
+      if (t.includes('contrast')) return 'Low contrast text is hard to read and excludes users.';
+      if (t.includes('label') || t.includes('name')) return 'Unlabeled buttons or fields block keyboard and screen reader users.';
+      return 'Accessibility issues reduce reach and trust.';
+    }
+    if (i.type === 'seo') {
+      const t = (i.title||'').toLowerCase();
+      if (t.includes('title')) return 'Unclear titles hurt clicks from search results.';
+      if (t.includes('description')) return 'Missing descriptions make results less compelling to click.';
+      return 'Clear titles and descriptions improve discovery and clicks.';
+    }
+    if (i.type === 'flow') return 'Broken steps stop users from completing key tasks.';
+    return 'Fixing this reduces friction and improves conversion.';
+  } catch { return 'Improves user experience and conversion.'; }
+}
+
+function friendlyHow(i: Issue): string {
+  try {
+    if (Array.isArray(i.fixSteps) && i.fixSteps.length) {
+      let s = i.fixSteps.join('; ');
+      s = s.replace(/Inline critical CSS/gi, 'Load essential styles first');
+      s = s.replace(/Preload hero image\s*&\s*font/gi, 'Load the first picture and font early');
+      s = s.replace(/Preload hero image/gi, 'Load the first picture early');
+      s = s.replace(/Defer non[- ]critical JS/gi, 'Delay non‑essential code');
+      s = s.replace(/Add a ~155 char meta description/gi, 'Add a short description (~155 chars)');
+      return s.length > 180 ? (s.slice(0, 177) + '…') : s;
+    }
+    if (i.type === 'perf') {
+      const m = i.metric?.name || '';
+      if (m === 'largest-contentful-paint') return 'Preload hero image and key fonts; inline critical CSS; defer non‑essential scripts.';
+      if (m === 'interactive') return 'Reduce long tasks; defer non‑critical scripts; keep input handlers light.';
+      if (m === 'cumulative-layout-shift') return 'Reserve space for images/fonts; avoid late‑loading banners; set dimensions.';
+      return 'Trim and defer scripts; preload critical assets.';
+    }
+    if (i.type === 'a11y') return 'Add clear labels, improve text contrast, and ensure buttons/links have names.';
+    if (i.type === 'seo') return 'Set a descriptive title (50–60 chars) and a clear meta description (~155 chars).';
+    if (i.type === 'flow') return 'Stabilize selectors and handle errors; add a simple automated test.';
+    return 'Apply the recommended change and re‑scan.';
+  } catch { return 'Apply the recommended change and re‑scan.'; }
 }

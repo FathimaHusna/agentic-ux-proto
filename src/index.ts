@@ -75,7 +75,7 @@ const server = http.createServer(async (req, res) => {
         competitors = raw.split(',').map(s => s.trim()).filter(s => /^https?:\/\//i.test(s)).slice(0,3);
       }
       if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) {
-        return sendJSON(res, 400, { error: 'Invalid url' });
+        return sendJSON(res, 400, { error: 'Please enter a valid website address (https://...)' });
       }
       const job = jobStore.createJob(targetUrl, { maxDepth, engines: { crawler, a11y }, competitors });
       const reportUrl = `/api/report/${job.id}`;
@@ -188,9 +188,10 @@ const server = http.createServer(async (req, res) => {
         </style>
       </head><body>
         <h1>Generating report…</h1>
+        <p class="muted">Hang tight — this may take 1–3 minutes. This page will open automatically when ready.</p>
         <p>Job <code>${escapeHtml(id)}</code> — Status: <strong id="st">${escapeHtml(job.status)}</strong> | Stage: <strong id="sg">${escapeHtml(job.stage || 'queued')}</strong> | Progress: <strong id="p">${escapeHtml(String(prog))}</strong></p>
         <div class="bar"><span id="pb"></span></div>
-        <p class="muted">This page will open automatically when ready.</p>
+        <p class="muted">Tip: You can start another scan from the home page.</p>
         <p><a id="joblink" href="/api/job/${escapeHtml(id)}" target="_blank">View job JSON</a> · <a href="/">Start another</a></p>
         <script>
           (function(){
@@ -252,19 +253,19 @@ const server = http.createServer(async (req, res) => {
         const all = await listRuns();
         const origins = Array.from(new Set((all || []).map((r: any) => r.origin))).sort();
         const items = origins.map(o => `<li><a href="/project?origin=${encodeURIComponent(o)}">${escapeHtml(o)}</a></li>`).join('');
-        const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Projects</title></head>
+        const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Past Scans</title></head>
           <body style="font-family:Arial,sans-serif; padding:24px">
-            <h1>Projects</h1>
+            <h1>Past Scans</h1>
             <form action="/project" method="get" style="margin:8px 0;">
               <input name="origin" placeholder="https://example.com" style="width:360px"/>
               <button type="submit">Open</button>
             </form>
-            <h3>Known Origins</h3>
+            <h3>Websites</h3>
             <ul>${items || '<li>(none)</li>'}</ul>
           </body></html>`;
         return sendHTML(res, 200, html);
       } catch {
-        return sendHTML(res, 200, '<h1>Projects</h1><p>No runs found.</p>');
+        return sendHTML(res, 200, '<h1>Past Scans</h1><p>No results yet.</p>');
       }
     } else {
       try {
@@ -274,11 +275,11 @@ const server = http.createServer(async (req, res) => {
           const diffLink = prev ? `<a href="/api/diff/${prev.id}/${r.id}" target="_blank">diff</a>` : '';
           return `<tr><td>${new Date(r.createdAt).toLocaleString()}</td><td>${r.counts.issues}</td><td><a href="/api/report/${r.id}">report</a></td><td>${diffLink}</td></tr>`;
         }).join('');
-        const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Project – ${escapeHtml(origin)}</title></head>
+        const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Past Scans – ${escapeHtml(origin)}</title></head>
           <body style="font-family:Arial,sans-serif; padding:24px">
-            <h1>Project</h1>
-            <p><strong>Origin:</strong> ${escapeHtml(origin)} · <a href="/project">All projects</a></p>
-            <table style="border-collapse:collapse; width:100%"><thead><tr><th>Run</th><th>Issues</th><th>Report</th><th>Diff</th></tr></thead>
+            <h1>Past Scans</h1>
+            <p><strong>Website:</strong> ${escapeHtml(origin)} · <a href="/project">All websites</a></p>
+            <table style="border-collapse:collapse; width:100%"><thead><tr><th>When</th><th>Findings</th><th>Report</th><th>Diff</th></tr></thead>
             <tbody>${rows || '<tr><td colspan="4">No runs yet</td></tr>'}</tbody></table>
           </body></html>`;
         return sendHTML(res, 200, html);
@@ -724,7 +725,7 @@ const server = http.createServer(async (req, res) => {
     const qUrl = q.url ? String(q.url).trim() : '';
     if (qUrl) {
       if (!/^https?:\/\//i.test(qUrl)) {
-        return sendHTML(res, 400, '<h1>Invalid url</h1>');
+        return sendHTML(res, 400, '<h1>Please enter a valid website address</h1>');
       }
       const maxDepth = Math.max(1, Math.min(Number(q.maxDepth || 2), 3));
       const crawler = q.crawler === 'http' ? 'http' : undefined;
@@ -772,6 +773,9 @@ function augmentReportHtml(job: any, html: string): string {
     // Sanitize remnants of TS syntax accidentally shipped inside inline scripts
     out = out.replace(/\(window as any\)/g, 'window');
     out = out.replace(/\bas any\b/g, '');
+    out = out.replace(/\sas HTMLInputElement/g, '');
+    // Remove non-null assertion before property access, e.g., el!.textContent
+    out = out.replace(/\)!\./g, ').');
     // Ensure Generate button does not submit enclosing forms
     if (out.includes('id="genRoast"') && !/id=\"genRoast\"[^>]*type=\"button\"/i.test(out)) {
       out = out.replace(/<button([^>]*id=\"genRoast\"[^>]*)>/i, (m, attrs) => `<button${attrs} type="button">`);

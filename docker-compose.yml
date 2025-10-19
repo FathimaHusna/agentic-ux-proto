@@ -16,7 +16,14 @@ services:
   # Quick public URL via Cloudflare Tunnel (no account required)
   cloudflared:
     image: cloudflare/cloudflared:latest
-    command: tunnel --no-autoupdate --url http://agentic-ux:8787
+    # Share network with app so localhost:8787 points to the app
+    network_mode: "service:agentic-ux"
+    command: tunnel --no-autoupdate --url http://localhost:8787
+    # Force known-good DNS to avoid 127.0.0.11 resolver issues
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
+      - 8.8.8.8
     depends_on:
       - agentic-ux
     restart: unless-stopped
